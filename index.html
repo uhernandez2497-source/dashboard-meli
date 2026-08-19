@@ -1351,7 +1351,8 @@
 
     reader.readAsArrayBuffer(file);
 }
-            pilotData = [
+        function loadSampleData()  {   
+        pilotData = [
                 {
                     id: 1,
                     taller: "MTK APODACA",
@@ -1409,6 +1410,7 @@
             renderDashboard();
             closeImportModal();
         }
+            
 
         function exportToExcel() {
             const dataToExport = getFilteredData().map(item => ({
