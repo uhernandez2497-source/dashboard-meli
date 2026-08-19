@@ -930,11 +930,11 @@
             document.getElementById('importStatus').classList.add('hidden');
         }
 
-        function handleFileUpload(event) {
+function handleFileUpload(event) {
     const file = event.target.files[0];
+
     if (!file) return;
 
-    const reader = new FileReader();
     const statusDiv = document.getElementById('importStatus');
 
     statusDiv.classList.remove('hidden');
@@ -942,415 +942,381 @@
     statusDiv.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin text-meli-accent mr-2"></i> Procesando archivo...';
 
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, {
-                type: 'array',
-                cellDates: true
-            });
+    const reader = new FileReader();
 
-            // =========================================================
-            // 1. BUSCAR EXCLUSIVAMENTE LA HOJA MAESTRA
-            // =========================================================
+    reader.onload = function(e) {
+
+        try {
+
+            const workbook = XLSX.read(
+                new Uint8Array(e.target.result),
+                {
+                    type: 'array',
+                    cellDates: true
+                }
+            );
+
+            // =====================================================
+            // SOLO UTILIZAR LA HOJA MAESTRA
+            // =====================================================
 
             const sheetName = workbook.SheetNames.find(
-                n => n.trim().toLowerCase() === 'prueba pilot meli'
+                name =>
+                    name.trim().toLowerCase() ===
+                    "prueba pilot meli"
             );
 
             if (!sheetName) {
-                statusDiv.className = "text-xs text-rose-600 font-semibold";
+
+                statusDiv.className =
+                    "text-xs text-rose-600 font-semibold";
+
                 statusDiv.textContent =
                     'No se encontró la hoja "Prueba Pilot MELI".';
+
                 return;
             }
 
             const worksheet = workbook.Sheets[sheetName];
 
-            // Leer como matriz para respetar la estructura original
-            const rows = XLSX.utils.sheet_to_json(worksheet, {
-                header: 1,
-                defval: ""
-            });
+            // =====================================================
+            // LEER LA HOJA COMO MATRIZ
+            // =====================================================
 
-            if (!rows.length) {
-                statusDiv.className = "text-xs text-rose-600 font-semibold";
+            const rows = XLSX.utils.sheet_to_json(
+                worksheet,
+                {
+                    header: 1,
+                    defval: ""
+                }
+            );
+
+            if (rows.length < 2) {
+
+                statusDiv.className =
+                    "text-xs text-rose-600 font-semibold";
+
                 statusDiv.textContent =
-                    'La hoja "Prueba Pilot MELI" está vacía.';
+                    "La hoja no contiene registros.";
+
                 return;
             }
 
-            // =========================================================
-            // 2. NORMALIZAR TEXTOS
-            // =========================================================
+            // =====================================================
+            // ENCABEZADOS
+            // =====================================================
 
-            function normalize(value) {
-                return String(value ?? "")
-                    .normalize("NFD")
-                    .replace(/[\u0300-\u036f]/g, "")
-                    .replace(/\s+/g, " ")
-                    .trim()
-                    .toUpperCase();
-            }
+            const headers = rows[0].map(
+                value =>
+                    String(value)
+                        .trim()
+                        .toLowerCase()
+                );
 
-            // =========================================================
-            // 3. ENCONTRAR LA FILA DE ENCABEZADOS
-            // =========================================================
+            // =====================================================
+            // BUSCAR COLUMNAS
+            // =====================================================
 
-            let headerIndex = -1;
+            const colTaller =
+                headers.indexOf("taller");
 
-            for (let i = 0; i < Math.min(rows.length, 30); i++) {
-                const normalizedRow = rows[i].map(normalize).join(" | ");
+            const colFecha =
+                headers.indexOf("fecha");
 
-                if (
-                    normalizedRow.includes("TALLER") &&
-                    normalizedRow.includes("PREVENTIVO") &&
-                    normalizedRow.includes("MELI")
-                ) {
-                    headerIndex = i;
-                    break;
-                }
-            }
+            const colDerivada =
+                headers.indexOf("derivada preventivo");
 
-            // Si no encuentra encabezados, asumimos la primera fila
-            if (headerIndex === -1) {
-                headerIndex = 0;
-            }
+            const colPreventivo =
+                headers.indexOf("preventivo");
 
-            const headers = rows[headerIndex].map(normalize);
+            const colProgramados =
+                headers.indexOf("meli programados");
 
-            // =========================================================
-            // 4. BUSCAR COLUMNAS POR NOMBRE
-            // =========================================================
+            const colEntregadas =
+                headers.indexOf("meli entregadas");
 
-            function findColumn(...names) {
-                for (const name of names) {
-                    const index = headers.findIndex(h =>
-                        h.includes(normalize(name))
-                    );
+            const colMismoDia =
+                headers.indexOf("mismo día") !== -1
+                    ? headers.indexOf("mismo día")
+                    : headers.indexOf("mismo dia");
 
-                    if (index !== -1) return index;
-                }
+            const colCorrectivos =
+                headers.indexOf("correctivos");
 
-                return -1;
-            }
+            const colCorrectivosAutorizados =
+                headers.indexOf("correctivos autorizados");
 
-            const colTallerFecha = findColumn(
-                "TALLER / FECHA",
-                "TALLER/FECHA",
-                "TALLER",
-                "FECHA"
-            );
+            const colDescripcion =
+                headers.indexOf("descripción correctivos") !== -1
+                    ? headers.indexOf("descripción correctivos")
+                    : headers.indexOf("descripcion correctivos");
 
-            const colDerivada = findColumn(
-                "DERIVADA PREV",
-                "DERIVADA PREVENTIVO"
-            );
-
-            const colPreventivo = findColumn(
-                "PREVENTIVO"
-            );
-
-            const colProgramados = findColumn(
-                "MELI PROG",
-                "MELI PROGRAMADOS",
-                "MELI PROG."
-            );
-
-            const colEntregadas = findColumn(
-                "MELI ENTR",
-                "MELI ENTREGADAS",
-                "MELI ENTR."
-            );
-
-            const colMismoDia = findColumn(
-                "MISMO DIA",
-                "MISMO DÍA"
-            );
-
-            const colCorrectivos = findColumn(
-                "CORRECTIVOS"
-            );
-
-            const colCorrectivosAutorizados = findColumn(
-                "CORR. AUTORIZ",
-                "CORRECTIVOS AUTORIZADOS",
-                "CORR AUTORIZ"
-            );
-
-            const colDescripcion = findColumn(
-                "DESCRIPCIÓN CORRECTIVOS",
-                "DESCRIPCION CORRECTIVOS"
-            );
-
-            // =========================================================
-            // 5. VALIDAR ESTRUCTURA
-            // =========================================================
+            // =====================================================
+            // VALIDAR COLUMNAS
+            // =====================================================
 
             if (
-                colTallerFecha === -1 ||
+                colTaller === -1 ||
+                colFecha === -1 ||
                 colDerivada === -1 ||
                 colPreventivo === -1 ||
                 colProgramados === -1 ||
                 colEntregadas === -1
             ) {
-                console.log("Encabezados encontrados:", headers);
+
+                console.log("Columnas detectadas:", headers);
 
                 statusDiv.className =
                     "text-xs text-rose-600 font-semibold";
 
                 statusDiv.innerHTML =
-                    'La hoja <strong>Prueba Pilot MELI</strong> fue encontrada, ' +
-                    'pero sus encabezados no coinciden con la estructura esperada.';
+                    "La hoja fue encontrada, pero no contiene las columnas esperadas.";
 
                 return;
             }
 
-            // =========================================================
-            // 6. CONVERSIÓN DE FECHAS
-            // =========================================================
+            // =====================================================
+            // CONVERTIR FECHA
+            // =====================================================
 
-            function parseFecha(value) {
-                if (value instanceof Date && !isNaN(value)) {
-                    return value.toISOString().split("T")[0];
+            function convertirFecha(valor) {
+
+                if (!valor) return null;
+
+                // Si Excel entrega un objeto Date
+                if (valor instanceof Date && !isNaN(valor)) {
+
+                    const year =
+                        valor.getFullYear();
+
+                    const month =
+                        String(valor.getMonth() + 1)
+                            .padStart(2, "0");
+
+                    const day =
+                        String(valor.getDate())
+                            .padStart(2, "0");
+
+                    return `${year}-${month}-${day}`;
                 }
 
-                if (typeof value === "number" && value > 30000) {
-                    const date = XLSX.SSF.parse_date_code(value);
-
-                    if (date) {
-                        return `${date.y}-${String(date.m).padStart(2, "0")}-${String(date.d).padStart(2, "0")}`;
-                    }
-                }
-
-                const text = String(value ?? "")
-                    .trim()
-                    .toLowerCase();
+                const texto =
+                    String(valor).trim();
 
                 // YYYY-MM-DD
-                if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(text)) {
-                    const parts = text.split("-");
+                if (
+                    /^\d{4}-\d{1,2}-\d{1,2}$/
+                        .test(texto)
+                ) {
 
-                    return `${parts[0]}-${String(parts[1]).padStart(2, "0")}-${String(parts[2]).padStart(2, "0")}`;
+                    const partes =
+                        texto.split("-");
+
+                    return `${partes[0]}-${String(partes[1]).padStart(2,"0")}-${String(partes[2]).padStart(2,"0")}`;
                 }
 
                 // DD/MM/YYYY
-                const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                const match =
+                    texto.match(
+                        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+                    );
 
-                if (slash) {
-                    return `${slash[3]}-${String(slash[2]).padStart(2, "0")}-${String(slash[1]).padStart(2, "0")}`;
+                if (match) {
+
+                    return `${match[3]}-${String(match[2]).padStart(2,"0")}-${String(match[1]).padStart(2,"0")}`;
                 }
 
-                // DD-ago / DD-sep / etc.
-                const monthMap = {
-                    ene: "01",
-                    feb: "02",
-                    mar: "03",
-                    abr: "04",
-                    may: "05",
-                    jun: "06",
-                    jul: "07",
-                    ago: "08",
-                    sep: "09",
-                    oct: "10",
-                    nov: "11",
-                    dic: "12"
-                };
+                // Fecha Excel serial
+                if (
+                    !isNaN(valor) &&
+                    Number(valor) > 30000
+                ) {
 
-                const shortDate = text.match(/^(\d{1,2})[-\/]([a-z]{3})$/);
+                    const fecha =
+                        XLSX.SSF.parse_date_code(
+                            Number(valor)
+                        );
 
-                if (shortDate) {
-                    const day = String(shortDate[1]).padStart(2, "0");
-                    const month = monthMap[shortDate[2]];
+                    if (fecha) {
 
-                    if (month) {
-                        return `2026-${month}-${day}`;
+                        return `${fecha.y}-${String(fecha.m).padStart(2,"0")}-${String(fecha.d).padStart(2,"0")}`;
                     }
                 }
 
                 return null;
             }
 
-            // =========================================================
-            // 7. IDENTIFICAR SI UNA FILA ES FECHA
-            // =========================================================
+            // =====================================================
+            // CONVERTIR NÚMEROS
+            // =====================================================
 
-            function isDateValue(value) {
-                return parseFecha(value) !== null;
+            function numero(valor) {
+
+                const n =
+                    Number(valor);
+
+                return isNaN(n) ? 0 : n;
             }
 
-            // =========================================================
-            // 8. LEER REGISTROS
-            // =========================================================
+            // =====================================================
+            // CONSTRUIR DATOS MAESTROS
+            // =====================================================
 
             const importedData = [];
 
-            let currentTaller = "";
-
-            for (let i = headerIndex + 1; i < rows.length; i++) {
+            for (
+                let i = 1;
+                i < rows.length;
+                i++
+            ) {
 
                 const row = rows[i];
 
-                if (!row || row.length === 0) continue;
+                if (!row) continue;
 
-                const firstValue = row[colTallerFecha];
-                const firstText = String(firstValue ?? "").trim();
+                const taller =
+                    String(
+                        row[colTaller] ?? ""
+                    ).trim();
 
-                if (!firstText) continue;
+                const fecha =
+                    convertirFecha(
+                        row[colFecha]
+                    );
 
-                const normalizedFirst = normalize(firstText);
-
-                // =====================================================
-                // IGNORAR TOTALES
-                // =====================================================
-
+                // Ignorar filas sin taller o fecha
                 if (
-                    normalizedFirst.includes("GRAND TOTAL") ||
-                    normalizedFirst === "TOTAL" ||
-                    normalizedFirst.includes("TOTALES")
+                    !taller ||
+                    !fecha
                 ) {
                     continue;
                 }
 
-                // =====================================================
-                // DETERMINAR SI ES UNA FECHA
-                // =====================================================
-
-                const fecha = parseFecha(firstValue);
-
-                if (!fecha) {
-
-                    // No es fecha → lo tratamos como nombre del taller
-
-                    if (
-                        !normalizedFirst.includes("TALLER") &&
-                        !normalizedFirst.includes("RESUMEN")
-                    ) {
-                        currentTaller = firstText
-                            .replace(/\[\+\]/g, "")
-                            .replace(/\[-\]/g, "")
-                            .trim();
-                    }
-
-                    continue;
-                }
-
-                // =====================================================
-                // SI TENEMOS FECHA, DEBE EXISTIR UN TALLER
-                // =====================================================
-
-                if (!currentTaller) {
-                    currentTaller = "SIN TALLER";
-                }
-
-                // =====================================================
-                // LEER VALORES
-                // =====================================================
-
-                const derivadaPreventivo =
-                    Number(row[colDerivada]) || 0;
-
-                const preventivo =
-                    Number(row[colPreventivo]) || 0;
-
-                const programados =
-                    Number(row[colProgramados]) || 0;
-
-                const entregadas =
-                    Number(row[colEntregadas]) || 0;
-
-                const mismoDia =
-                    colMismoDia !== -1
-                        ? String(row[colMismoDia] ?? "N")
-                            .trim()
-                            .toUpperCase()
-                        : "N";
-
-                const correctivos =
-                    colCorrectivos !== -1
-                        ? Number(row[colCorrectivos]) || 0
-                        : 0;
-
-                const correctivosAutorizados =
-                    colCorrectivosAutorizados !== -1
-                        ? String(row[colCorrectivosAutorizados] ?? "NA")
-                            .trim()
-                        : "NA";
-
-                const descripcionCorrectivos =
-                    colDescripcion !== -1
-                        ? String(row[colDescripcion] ?? "NA")
-                            .trim()
-                        : "NA";
-
-                // =====================================================
-                // AGREGAR REGISTRO
-                // =====================================================
-
                 importedData.push({
-                    id: Date.now() + i,
-                    taller: currentTaller,
-                    fecha: fecha,
-                    derivadaPreventivo,
-                    preventivo,
-                    programados,
-                    entregadas,
-                    mismoDia,
-                    correctivos,
-                    correctivosAutorizados,
-                    descripcionCorrectivos
+
+                    id:
+                        Date.now() + i,
+
+                    taller:
+                        taller.toUpperCase(),
+
+                    fecha:
+                        fecha,
+
+                    derivadaPreventivo:
+                        numero(
+                            row[colDerivada]
+                        ),
+
+                    preventivo:
+                        numero(
+                            row[colPreventivo]
+                        ),
+
+                    programados:
+                        numero(
+                            row[colProgramados]
+                        ),
+
+                    entregadas:
+                        numero(
+                            row[colEntregadas]
+                        ),
+
+                    mismoDia:
+                        colMismoDia !== -1
+                            ? String(
+                                row[colMismoDia] ?? "N"
+                              )
+                                .trim()
+                                .toUpperCase()
+                            : "N",
+
+                    correctivos:
+                        colCorrectivos !== -1
+                            ? numero(
+                                row[colCorrectivos]
+                              )
+                            : 0,
+
+                    correctivosAutorizados:
+                        colCorrectivosAutorizados !== -1
+                            ? String(
+                                row[colCorrectivosAutorizados] ?? "NA"
+                              ).trim()
+                            : "NA",
+
+                    descripcionCorrectivos:
+                        colDescripcion !== -1
+                            ? String(
+                                row[colDescripcion] ?? "NA"
+                              ).trim()
+                            : "NA"
                 });
             }
 
-            // =========================================================
-            // 9. VALIDAR RESULTADO
-            // =========================================================
+            // =====================================================
+            // VALIDAR RESULTADO
+            // =====================================================
 
-            if (importedData.length === 0) {
+            if (
+                importedData.length === 0
+            ) {
 
                 statusDiv.className =
                     "text-xs text-amber-600 font-semibold";
 
-                statusDiv.innerHTML =
-                    `La hoja <strong>${sheetName}</strong> fue encontrada, ` +
-                    `pero no se encontraron registros con fecha.`;
+                statusDiv.textContent =
+                    "La hoja fue encontrada, pero no se encontraron registros válidos.";
 
                 return;
             }
 
-            // =========================================================
-            // 10. CARGAR DATOS AL DASHBOARD
-            // =========================================================
+            // =====================================================
+            // CARGAR DATOS
+            // =====================================================
 
-            pilotData = importedData;
+            pilotData =
+                importedData;
 
             populateTallerFilter();
+
             renderDashboard();
 
             statusDiv.className =
                 "text-xs text-emerald-600 font-semibold";
 
             statusDiv.innerHTML =
-                `<i class="fa-solid fa-circle-check mr-1"></i>` +
-                `¡Éxito! Se cargaron <strong>${importedData.length}</strong> ` +
-                `registros desde <strong>${sheetName}</strong>.`;
+                `<i class="fa-solid fa-circle-check mr-1"></i>
+                 ¡Éxito! Se cargaron
+                 <strong>${importedData.length}</strong>
+                 registros desde
+                 <strong>${sheetName}</strong>.`;
 
-            setTimeout(closeImportModal, 2000);
+            setTimeout(
+                closeImportModal,
+                2000
+            );
 
-        } catch (err) {
+        } catch (error) {
 
-            console.error("Error importando Excel:", err);
+            console.error(
+                "Error leyendo Excel:",
+                error
+            );
 
             statusDiv.className =
                 "text-xs text-rose-600 font-semibold";
 
             statusDiv.textContent =
-                "Error al procesar el archivo Excel. Revisa la estructura de la hoja Prueba Pilot MELI.";
+                "Ocurrió un error al procesar el archivo Excel.";
         }
     };
 
     reader.readAsArrayBuffer(file);
 }
+
+        
         function loadSampleData()  {   
         pilotData = [
                 {
