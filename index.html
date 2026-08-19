@@ -1,0 +1,1120 @@
+!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Prueba Pilot MELI</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS CDN for Excel parsing & export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        meli: {
+                            yellow: '#FFF159',
+                            blue: '#2D3277',
+                            darkBlue: '#1E2252',
+                            accent: '#3483FA',
+                            success: '#00A650',
+                            warning: '#FF7733',
+                            danger: '#F23D4F'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="h-full flex flex-col text-slate-800 antialiased selection:bg-yellow-200">
+
+    <header class="bg-meli-blue text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Brand & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="bg-meli-yellow text-slate-900 p-2 rounded-lg font-bold flex items-center justify-center w-10 h-10 shadow-sm">
+                        <i class="fa-solid fa-truck-fast text-lg"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                            Prueba Pilot MELI
+                            <span class="bg-yellow-400/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full border border-yellow-400/30 font-medium">Control de Efectividad</span>
+                        </h1>
+                        <p class="text-xs text-slate-300">Monitoreo diario de entregas y reparaciones en taller</p>
+                    </div>
+                </div>
+
+                <!-- Top Right Actions -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <button onclick="openImportModal()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-700/60 hover:bg-slate-700 text-xs font-medium rounded-lg transition border border-slate-600">
+                        <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                        <span class="hidden sm:inline">Cargar Excel / CSV</span>
+                    </button>
+                    <button onclick="exportToExcel()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-700/60 hover:bg-slate-700 text-xs font-medium rounded-lg transition border border-slate-600">
+                        <i class="fa-solid fa-download text-sky-400"></i>
+                        <span class="hidden sm:inline">Exportar</span>
+                    </button>
+                    <button onclick="openAddModal()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-meli-accent hover:bg-blue-600 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Nuevo Registro</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        <!-- Filter Bar -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                <div class="flex items-center space-x-2 text-slate-500 text-xs font-medium uppercase tracking-wider">
+                    <i class="fa-solid fa-filter text-slate-400"></i>
+                    <span>Filtros:</span>
+                </div>
+                
+                <!-- Filter Taller -->
+                <select id="filterTaller" onchange="applyFilters()" class="text-xs border border-slate-300 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-meli-accent">
+                    <option value="ALL">Todos los Talleres</option>
+                </select>
+
+                <!-- Filter Fecha Range -->
+                <div class="flex items-center gap-1">
+                    <input type="date" id="filterFechaInicio" onchange="applyFilters()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-meli-accent" placeholder="Desde">
+                    <span class="text-slate-400 text-xs">a</span>
+                    <input type="date" id="filterFechaFin" onchange="applyFilters()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-meli-accent" placeholder="Hasta">
+                </div>
+
+                <!-- Solo Preventivos Toggle -->
+                <label class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1.5 rounded-lg border border-slate-200 cursor-pointer hover:bg-slate-200 transition">
+                    <input type="checkbox" id="filterSoloPreventivos" onchange="applyFilters()" checked class="rounded text-meli-accent focus:ring-meli-accent h-3.5 w-3.5">
+                    <span>Solo Preventivos (MELI)</span>
+                </label>
+
+                <button onclick="resetFilters()" class="text-xs text-slate-500 hover:text-slate-700 underline px-2 py-1">
+                    Limpiar
+                </button>
+            </div>
+
+            <!-- Quick Stats Summary Badge -->
+            <div id="filterSummaryBadge" class="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                Cargando resumen...
+            </div>
+        </section>
+
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- KPI 1: Efectividad Global Preventivos -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 transition">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Efectividad Preventivos</p>
+                        <h3 id="kpiEfectividad" class="text-3xl font-extrabold text-slate-800 mt-1">0%</h3>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-emerald-50 text-emerald-600">
+                        <i class="fa-solid fa-chart-line text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="w-full bg-slate-100 rounded-full h-2">
+                        <div id="kpiEfectividadBar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                    <p id="kpiEfectividadSubtitle" class="text-xs text-slate-500 mt-1.5 flex justify-between">
+                        <span>Meta: 95%</span>
+                        <span id="kpiEfectividadDiff" class="font-semibold text-emerald-600">+0% vs meta</span>
+                    </p>
+                </div>
+            </div>
+
+            <!-- KPI 2: Programados vs Entregados Preventivos -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 transition">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">MELI Entregas (Preventivo)</p>
+                        <h3 class="text-3xl font-extrabold text-slate-800 mt-1">
+                            <span id="kpiEntregadas">0</span> <span class="text-slate-400 text-lg font-normal">/ <span id="kpiProgramados">0</span></span>
+                        </h3>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-blue-50 text-meli-accent">
+                        <i class="fa-solid fa-boxes-packing text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                    <span>Mismo Día (Cumplidos):</span>
+                    <span id="kpiMismoDiaPct" class="font-bold text-slate-700">0% (0)</span>
+                </div>
+            </div>
+
+            <!-- KPI 3: Razones de Reparación -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 transition">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Servicios Realizados</p>
+                        <h3 id="kpiPreventivosTotal" class="text-3xl font-extrabold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-violet-50 text-violet-600">
+                        <i class="fa-solid fa-screwdriver-wrench text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                    <span>Preventivos Directos: <strong id="kpiPreventivoDirecto" class="text-slate-700">0</strong></span>
+                    <span>Derivados: <strong id="kpiDerivadaPreventivo" class="text-slate-700">0</strong></span>
+                </div>
+            </div>
+
+            <!-- KPI 4: Correctivos Detectados -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 relative overflow-hidden group hover:border-slate-300 transition">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-slate-400">Correctivos</p>
+                        <h3 id="kpiCorrectivos" class="text-3xl font-extrabold text-slate-800 mt-1">0</h3>
+                    </div>
+                    <div class="p-2.5 rounded-xl bg-amber-50 text-amber-600">
+                        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-3 flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+                    <span>Autorizados:</span>
+                    <span id="kpiCorrectivosAutorizados" class="font-bold text-slate-700">0 de 0</span>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Chart 1: Tendencia Diaria de Efectividad -->
+            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-meli-accent"></i>
+                            Efectividad Diaria de Entrega (%)
+                        </h2>
+                        <p class="text-xs text-slate-500">Porcentaje de unidades entregadas vs programadas por día</p>
+                    </div>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md font-medium">Línea de Meta: 95%</span>
+                </div>
+                <div class="relative h-64 w-full">
+                    <canvas id="chartEfectividadDiaria"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Comparativa de Mantenimiento / Reparación -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200/80 p-5 flex flex-col justify-between">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-violet-500"></i>
+                            Mantenimiento
+                        </h2>
+                        <p class="text-xs text-slate-500">Distribución de razones de ingreso</p>
+                    </div>
+                </div>
+                <div class="relative h-64 w-full flex items-center justify-center">
+                    <canvas id="chartRazonReparacion"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Comparativo Programados vs Entregados por Día -->
+            <div class="lg:col-span-3 bg-white rounded-xl shadow-sm border border-slate-200/80 p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-column text-emerald-500"></i>
+                            Unidades MELI: Programadas vs Entregadas
+                        </h2>
+                        <p class="text-xs text-slate-500">Volumen de unidades procesadas por fecha de prueba</p>
+                    </div>
+                </div>
+                <div class="relative h-60 w-full">
+                    <canvas id="chartVolumenDiario"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-5 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-table-list text-slate-600"></i>
+                        Bitácora Detallada de la Prueba Piloto
+                    </h2>
+                    <p class="text-xs text-slate-500">Registros agregados y desglosados por taller y día</p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div class="relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="tableSearch" onkeyup="renderTable()" placeholder="Buscar en tabla..." class="text-xs pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-meli-accent w-48 sm:w-64 bg-slate-50">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Responsive Table -->
+            <div class="overflow-x-auto custom-scrollbar">
+                <table class="w-full text-left text-xs text-slate-700">
+                    <thead class="bg-slate-100 text-slate-600 uppercase font-semibold text-[11px] tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-4">Taller / Fecha</th>
+                            <th class="py-3 px-3 text-center">Derivada Prev.</th>
+                            <th class="py-3 px-3 text-center">Preventivo</th>
+                            <th class="py-3 px-3 text-center bg-blue-50/50">MELI Prog.</th>
+                            <th class="py-3 px-3 text-center bg-blue-50/50">MELI Entr.</th>
+                            <th class="py-3 px-3 text-center">Mismo Día</th>
+                            <th class="py-3 px-3 text-center">Correctivos</th>
+                            <th class="py-3 px-3 text-center">Corr. Autoriz.</th>
+                            <th class="py-3 px-4">Descripción Correctivos</th>
+                            <th class="py-3 px-3 text-center">Efectividad</th>
+                            <th class="py-3 px-3 text-right">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pivotTableBody" class="divide-y divide-slate-100">
+                        <!-- Dynamic rows insertion -->
+                    </tbody>
+                    <tfoot id="pivotTableFoot" class="bg-slate-50 font-bold border-t-2 border-slate-300 text-slate-800">
+                        <!-- Dynamic totals insertion -->
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Add New Entry -->
+    <div id="addModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden transform transition-all">
+            <div class="bg-meli-blue px-6 py-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-square-plus text-meli-yellow"></i>
+                    Nuevo Registro Diario - Prueba Piloto
+                </h3>
+                <button onclick="closeAddModal()" class="text-slate-300 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <form id="addEntryForm" onsubmit="saveEntry(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Taller</label>
+                        <input type="text" id="inputTaller" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none" placeholder="ej. MTK APODACA" value="MTK APODACA">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Fecha</label>
+                        <input type="date" id="inputFecha" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Derivada Preventivo</label>
+                        <input type="number" min="0" id="inputDerivada" value="0" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Preventivo Directo</label>
+                        <input type="number" min="0" id="inputPreventivo" value="1" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">MELI Programados</label>
+                        <input type="number" min="0" id="inputProgramados" value="1" required class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">MELI Entregados</label>
+                        <input type="number" min="0" id="inputEntregadas" value="1" required class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-700 mb-1">Mismo Día</label>
+                        <select id="inputMismoDia" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                            <option value="Y">Y (Sí)</option>
+                            <option value="N">N (No)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Correctivos Detectados</label>
+                        <input type="number" min="0" id="inputCorrectivos" value="0" required class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Correctivos Autorizados</label>
+                        <input type="text" id="inputCorrectivosAutorizados" placeholder="ej. 1 o NA" value="NA" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Descripción de Correctivos</label>
+                    <textarea id="inputDescripcion" rows="2" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-meli-accent focus:outline-none" placeholder="Escriba aquí observaciones de reparaciones adicionales o NA"></textarea>
+                </div>
+
+                <div class="pt-3 flex justify-end space-x-3 border-t border-slate-200">
+                    <button type="button" onclick="closeAddModal()" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 text-xs font-medium text-white bg-meli-accent hover:bg-blue-600 rounded-lg shadow-sm">Guardar Registro</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Excel Import -->
+    <div id="importModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+            <div class="bg-slate-800 px-6 py-4 text-white flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                    Importar Formato Piloto.xlsx
+                </h3>
+                <button onclick="closeImportModal()" class="text-slate-300 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    Carga el archivo <strong class="text-slate-800">Formato Piloto.xlsx</strong>. El sistema leerá automáticamente los datos desde la hoja <strong class="text-slate-800">Prueba Pilot MELI</strong>.
+                </p>
+
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center bg-slate-50 hover:bg-slate-100/80 transition cursor-pointer" onclick="document.getElementById('excelFileInput').click()">
+                    <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                    <p class="text-xs font-medium text-slate-700">Haz clic para seleccionar o arrastra el archivo</p>
+                    <p class="text-[10px] text-slate-400 mt-1">Formatos permitidos: .xlsx, .xls</p>
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(event)">
+                </div>
+
+                <div id="importStatus" class="text-xs text-slate-600 hidden"></div>
+
+                <div class="pt-2 flex justify-between items-center border-t border-slate-200">
+                    <button type="button" onclick="loadSampleData()" class="text-xs text-meli-accent hover:underline font-semibold">
+                        Restablecer datos demo
+                    </button>
+                    <button type="button" onclick="closeImportModal()" class="px-4 py-2 text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg">
+                        Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data matching user's screenshot exactly
+        // FUENTE MAESTRA: únicamente hoja "Prueba Pilot MELI". Sheet1 NO se utiliza.
+        let pilotData = [
+            {
+                id: 1,
+                taller: "MTK APODACA",
+                fecha: "2026-08-17",
+                derivadaPreventivo: 0,
+                preventivo: 1,
+                programados: 1,
+                entregadas: 1,
+                mismoDia: "Y",
+                correctivos: 0,
+                correctivosAutorizados: "NA",
+                descripcionCorrectivos: "NA"
+            },
+            {
+                id: 2,
+                taller: "MTK APODACA",
+                fecha: "2026-08-18",
+                derivadaPreventivo: 1,
+                preventivo: 2,
+                programados: 2,
+                entregadas: 2,
+                mismoDia: "Y",
+                correctivos: 1,
+                correctivosAutorizados: "1",
+                descripcionCorrectivos: "Cambio llantas, Pte cambio discos y balatas unidad IH1367"
+            }
+        ];
+
+        // Chart instances
+        let chartEfectividadInstance = null;
+        let chartRazonesInstance = null;
+        let chartVolumenInstance = null;
+
+        window.onload = function() {
+            // Set default date input in form to today
+            document.getElementById('inputFecha').value = new Date().toISOString().split('T')[0];
+            
+            populateTallerFilter();
+            renderDashboard();
+        };
+
+        function populateTallerFilter() {
+            const select = document.getElementById('filterTaller');
+            const currentVal = select.value;
+            const talleres = [...new Set(pilotData.map(d => d.taller))];
+            
+            select.innerHTML = '<option value="ALL">Todos los Talleres</option>';
+            talleres.forEach(taller => {
+                const opt = document.createElement('option');
+                opt.value = taller;
+                opt.textContent = taller;
+                select.appendChild(opt);
+            });
+            select.value = talleres.includes(currentVal) ? currentVal : "ALL";
+        }
+
+        function getFilteredData() {
+            const tallerFilter = document.getElementById('filterTaller').value;
+            const fechaInicio = document.getElementById('filterFechaInicio').value;
+            const fechaFin = document.getElementById('filterFechaFin').value;
+            const soloPreventivos = document.getElementById('filterSoloPreventivos').checked;
+            const search = document.getElementById('tableSearch').value.toLowerCase();
+
+            return pilotData.filter(item => {
+                // Taller filter
+                if (tallerFilter !== "ALL" && item.taller !== tallerFilter) return false;
+                
+                // Date filter
+                if (fechaInicio && item.fecha < fechaInicio) return false;
+                if (fechaFin && item.fecha > fechaFin) return false;
+
+                // Solo Preventivos filter (Solo incluir filas donde existan preventivos > 0)
+                if (soloPreventivos && Number(item.preventivo || 0) <= 0) return false;
+
+                // Search query
+                if (search) {
+                    const matchTaller = item.taller.toLowerCase().includes(search);
+                    const matchFecha = item.fecha.includes(search);
+                    const matchDesc = item.descripcionCorrectivos.toLowerCase().includes(search);
+                    if (!matchTaller && !matchFecha && !matchDesc) return false;
+                }
+
+                return true;
+            });
+        }
+
+        function applyFilters() {
+            renderDashboard();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterTaller').value = "ALL";
+            document.getElementById('filterFechaInicio').value = "";
+            document.getElementById('filterFechaFin').value = "";
+            document.getElementById('filterSoloPreventivos').checked = true;
+            document.getElementById('tableSearch').value = "";
+            renderDashboard();
+        }
+
+        function renderDashboard() {
+            const filtered = getFilteredData();
+            
+            // Render Components
+            renderKPIs(filtered);
+            renderCharts(filtered);
+            renderTable(filtered);
+        }
+
+        function renderKPIs(data) {
+            // Contabiliza MELI Programados vs MELI Entregados
+            const totalProgramados = data.reduce((sum, d) => sum + Number(d.programados || 0), 0);
+            const totalEntregadas = data.reduce((sum, d) => sum + Number(d.entregadas || 0), 0);
+            const totalPreventivos = data.reduce((sum, d) => sum + Number(d.preventivo || 0), 0);
+            const totalDerivadas = data.reduce((sum, d) => sum + Number(d.derivadaPreventivo || 0), 0);
+            const totalCorrectivos = data.reduce((sum, d) => sum + Number(d.correctivos || 0), 0);
+            
+            const mismoDiaCount = data.filter(d => d.mismoDia === "Y" || d.mismoDia === "SÍ").length;
+            const mismoDiaPct = data.length > 0 ? Math.round((mismoDiaCount / data.length) * 100) : 0;
+
+            let correctivosAuthCount = 0;
+            data.forEach(d => {
+                if (d.correctivosAutorizados !== "NA" && d.correctivosAutorizados !== "" && !isNaN(d.correctivosAutorizados)) {
+                    correctivosAuthCount += Number(d.correctivosAutorizados);
+                }
+            });
+
+            // Overall Effectiveness calculated for MELI Programados vs MELI Entregados
+            const efectividad = totalProgramados > 0 ? Math.round((totalEntregadas / totalProgramados) * 100) : 0;
+
+            // DOM Updates
+            document.getElementById('kpiEfectividad').textContent = efectividad + "%";
+            document.getElementById('kpiEfectividadBar').style.width = Math.min(efectividad, 100) + "%";
+            
+            const diffMeta = efectividad - 95;
+            const diffElem = document.getElementById('kpiEfectividadDiff');
+            if (diffMeta >= 0) {
+                diffElem.textContent = `+${diffMeta}% vs meta (95%)`;
+                diffElem.className = "font-semibold text-emerald-600";
+            } else {
+                diffElem.textContent = `${diffMeta}% vs meta (95%)`;
+                diffElem.className = "font-semibold text-rose-500";
+            }
+
+            document.getElementById('kpiProgramados').textContent = totalProgramados;
+            document.getElementById('kpiEntregadas').textContent = totalEntregadas;
+            document.getElementById('kpiMismoDiaPct').textContent = `${mismoDiaPct}% (${mismoDiaCount} días)`;
+
+            document.getElementById('kpiPreventivosTotal').textContent = totalPreventivos;
+            document.getElementById('kpiPreventivoDirecto').textContent = totalPreventivos;
+            document.getElementById('kpiDerivadaPreventivo').textContent = totalDerivadas;
+
+            document.getElementById('kpiCorrectivos').textContent = totalCorrectivos;
+            document.getElementById('kpiCorrectivosAutorizados').textContent = `${correctivosAuthCount} aut. (${totalCorrectivos} det.)`;
+
+            document.getElementById('filterSummaryBadge').textContent = `Mostrando ${data.length} de ${pilotData.length} registros (Filtrados por Preventivos)`;
+        }
+
+        function renderCharts(data) {
+            // Sort data chronologically for charts
+            const sortedData = [...data].sort((a, b) => a.fecha.localeCompare(b.fecha));
+
+            // Format date string for display (e.g. 17-ago)
+            const formatFechaLabel = (fechaStr) => {
+                if (!fechaStr) return "";
+                const parts = fechaStr.split('-');
+                if (parts.length === 3) {
+                    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+                    const monthIdx = parseInt(parts[1], 10) - 1;
+                    return `${parts[2]}-${months[monthIdx] || parts[1]}`;
+                }
+                return fechaStr;
+            };
+
+            const labels = sortedData.map(d => formatFechaLabel(d.fecha));
+            const efectividades = sortedData.map(d => d.programados > 0 ? Math.round((d.entregadas / d.programados) * 100) : 0);
+            const programadosList = sortedData.map(d => d.programados);
+            const entregadasList = sortedData.map(d => d.entregadas);
+
+            // Chart 1: Efectividad Diaria Line Chart
+            const ctx1 = document.getElementById('chartEfectividadDiaria').getContext('2d');
+            if (chartEfectividadInstance) chartEfectividadInstance.destroy();
+
+            chartEfectividadInstance = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Efectividad (%)',
+                            data: efectividades,
+                            borderColor: '#00A650',
+                            backgroundColor: 'rgba(0, 166, 80, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            pointBackgroundColor: '#00A650',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2
+                        },
+                        {
+                            label: 'Meta (95%)',
+                            data: labels.map(() => 95),
+                            borderColor: '#F23D4F',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            fill: false,
+                            pointRadius: 0,
+                            pointHoverRadius: 0,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 12 } }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0 }
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Comparativa de Mantenimiento / Reparación (Doughnut)
+            const ctx2 = document.getElementById('chartRazonReparacion').getContext('2d');
+            if (chartRazonesInstance) chartRazonesInstance.destroy();
+            
+            const totalPreventivoDirecto = sortedData.reduce((sum, d) => sum + Number(d.preventivo || 0), 0);
+            const totalDerivada = sortedData.reduce((sum, d) => sum + Number(d.derivadaPreventivo || 0), 0);
+
+            chartRazonesInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Preventivo Directo', 'Derivada Preventivo'],
+                    datasets: [{
+                        data: [totalPreventivoDirecto, totalDerivada],
+                        backgroundColor: ['#3483FA', '#8B5CF6'], // MELI Blue Accent, Violet
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+                    cutout: '65%'
+                },
+                plugins: [{
+                    id: 'doughnutLabels',
+                    afterDraw(chart) {
+                        const { ctx } = chart;
+                        chart.data.datasets.forEach((dataset, i) => {
+                            chart.getDatasetMeta(i).data.forEach((datapoint, index) => {
+                                const { x, y } = datapoint.tooltipPosition();
+                                ctx.fillStyle = 'white';
+                                ctx.font = 'bold 12px Inter, sans-serif';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                const value = dataset.data[index];
+                                if (value > 0) {
+                                    ctx.fillText(value, x, y);
+                                }
+                            });
+                        });
+                    }
+                }]
+            });
+
+            // Chart 3: Comparativo Programados vs Entregados (Bar Chart)
+            const ctx3 = document.getElementById('chartVolumenDiario').getContext('2d');
+            if (chartVolumenInstance) chartVolumenInstance.destroy();
+
+            chartVolumenInstance = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'MELI Programados',
+                            data: programadosList,
+                            backgroundColor: '#2D3277', // MELI Dark Blue
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'MELI Entregadas',
+                            data: entregadasList,
+                            backgroundColor: '#00A650', // Success Green
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } }
+                    }
+                }
+            });
+        }
+
+        function renderTable(dataToRender = null) {
+            const data = dataToRender || getFilteredData();
+            const tbody = document.getElementById('pivotTableBody');
+            const tfoot = document.getElementById('pivotTableFoot');
+
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="11" class="text-center py-8 text-slate-400">
+                            <i class="fa-solid fa-folder-open text-2xl mb-2 block"></i>
+                            No hay registros que coincidan con los filtros aplicados.
+                        </td>
+                    </tr>`;
+                tfoot.innerHTML = "";
+                return;
+            }
+
+            // Group data by Taller to reproduce the Excel Pivot hierarchy
+            const grouped = {};
+            data.forEach(item => {
+                if (!grouped[item.taller]) grouped[item.taller] = [];
+                grouped[item.taller].push(item);
+            });
+
+            let html = "";
+            let grandDerivadas = 0, grandPreventivos = 0, grandProg = 0, grandEntr = 0, grandCorr = 0;
+
+            for (const taller in grouped) {
+                const items = grouped[taller];
+                
+                // Subtotals for taller
+                const tallerDerivadas = items.reduce((s, i) => s + Number(i.derivadaPreventivo || 0), 0);
+                const tallerPreventivos = items.reduce((s, i) => s + Number(i.preventivo || 0), 0);
+                const tallerProg = items.reduce((s, i) => s + Number(i.programados || 0), 0);
+                const tallerEntr = items.reduce((s, i) => s + Number(i.entregadas || 0), 0);
+                const tallerCorr = items.reduce((s, i) => s + Number(i.correctivos || 0), 0);
+                const tallerEfectividad = tallerProg > 0 ? Math.round((tallerEntr / tallerProg) * 100) : 0;
+
+                grandDerivadas += tallerDerivadas;
+                grandPreventivos += tallerPreventivos;
+                grandProg += tallerProg;
+                grandEntr += tallerEntr;
+                grandCorr += tallerCorr;
+
+                // Taller Header Row
+                html += `
+                    <tr class="bg-blue-50/60 font-bold text-slate-800 border-t border-slate-200">
+                        <td class="py-2.5 px-4 flex items-center gap-2">
+                            <i class="fa-solid fa-warehouse text-meli-blue"></i>
+                            <span>${taller}</span>
+                        </td>
+                        <td class="py-2.5 px-3 text-center">${tallerDerivadas || ''}</td>
+                        <td class="py-2.5 px-3 text-center">${tallerPreventivos || ''}</td>
+                        <td class="py-2.5 px-3 text-center bg-blue-100/50">${tallerProg || ''}</td>
+                        <td class="py-2.5 px-3 text-center bg-blue-100/50">${tallerEntr || ''}</td>
+                        <td class="py-2.5 px-3 text-center">-</td>
+                        <td class="py-2.5 px-3 text-center">${tallerCorr || '0'}</td>
+                        <td class="py-2.5 px-3 text-center">-</td>
+                        <td class="py-2.5 px-4 text-slate-500 italic font-normal text-[11px]">Resumen de Taller</td>
+                        <td class="py-2.5 px-3 text-center">
+                            <span class="inline-block px-2 py-0.5 rounded text-xs font-bold ${tallerEfectividad >= 95 ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                                ${tallerEfectividad}%
+                            </span>
+                        </td>
+                        <td class="py-2.5 px-3 text-right"></td>
+                    </tr>
+                `;
+
+                // Date Rows under Taller
+                items.forEach(row => {
+                    const efec = row.programados > 0 ? Math.round((row.entregadas / row.programados) * 100) : 0;
+                    
+                    // Format display date (e.g. 17-ago)
+                    const dateParts = row.fecha.split('-');
+                    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+                    const dateFormatted = dateParts.length === 3 ? `${dateParts[2]}-${months[parseInt(dateParts[1], 10)-1]}` : row.fecha;
+
+                    html += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="py-2.5 px-4 pl-8 flex items-center gap-2">
+                                <i class="fa-solid fa-calendar-day text-slate-400"></i>
+                                <span class="font-medium text-slate-700">${dateFormatted}</span>
+                            </td>
+                            <td class="py-2.5 px-3 text-center">${row.derivadaPreventivo || 0}</td>
+                            <td class="py-2.5 px-3 text-center font-medium">${row.preventivo || 0}</td>
+                            <td class="py-2.5 px-3 text-center font-semibold bg-blue-50/30">${row.programados}</td>
+                            <td class="py-2.5 px-3 text-center font-semibold bg-blue-50/30">${row.entregadas}</td>
+                            <td class="py-2.5 px-3 text-center">
+                                <span class="px-2 py-0.5 rounded text-[11px] font-bold ${row.mismoDia === 'Y' || row.mismoDia === 'SÍ' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}">
+                                    ${row.mismoDia}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-center">${row.correctivos}</td>
+                            <td class="py-2.5 px-3 text-center">${row.correctivosAutorizados}</td>
+                            <td class="py-2.5 px-4 text-slate-600 text-xs max-w-xs truncate" title="${row.descripcionCorrectivos}">
+                                ${row.descripcionCorrectivos}
+                            </td>
+                            <td class="py-2.5 px-3 text-center">
+                                <span class="px-2 py-0.5 rounded text-xs font-bold ${efec >= 100 ? 'bg-emerald-100 text-emerald-800' : (efec >= 80 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')}">
+                                    ${efec}%
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-right">
+                                <button onclick="deleteEntry(${row.id})" class="text-slate-400 hover:text-rose-600 transition px-1.5 py-1" title="Eliminar registro">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            tbody.innerHTML = html;
+
+            // Grand Total Footer
+            const grandEfectividad = grandProg > 0 ? Math.round((grandEntr / grandProg) * 100) : 0;
+            tfoot.innerHTML = `
+                <tr>
+                    <td class="py-3 px-4">Grand Total</td>
+                    <td class="py-3 px-3 text-center">${grandDerivadas}</td>
+                    <td class="py-3 px-3 text-center">${grandPreventivos}</td>
+                    <td class="py-3 px-3 text-center bg-blue-100/70">${grandProg}</td>
+                    <td class="py-3 px-3 text-center bg-blue-100/70">${grandEntr}</td>
+                    <td class="py-3 px-3 text-center">-</td>
+                    <td class="py-3 px-3 text-center">${grandCorr}</td>
+                    <td class="py-3 px-3 text-center">-</td>
+                    <td class="py-3 px-4 text-slate-500 font-normal">Totales acumulados</td>
+                    <td class="py-3 px-3 text-center text-sm font-extrabold ${grandEfectividad >= 95 ? 'text-emerald-700' : 'text-amber-700'}">
+                        ${grandEfectividad}%
+                    </td>
+                    <td class="py-3 px-3"></td>
+                </tr>
+            `;
+        }
+
+        function openAddModal() {
+            document.getElementById('addModal').classList.remove('hidden');
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').classList.add('hidden');
+        }
+
+        function saveEntry(event) {
+            event.preventDefault();
+
+            const taller = document.getElementById('inputTaller').value.trim();
+            const fecha = document.getElementById('inputFecha').value;
+            const derivadaPreventivo = parseInt(document.getElementById('inputDerivada').value, 10) || 0;
+            const preventivo = parseInt(document.getElementById('inputPreventivo').value, 10) || 0;
+            const programados = parseInt(document.getElementById('inputProgramados').value, 10) || 0;
+            const entregadas = parseInt(document.getElementById('inputEntregadas').value, 10) || 0;
+            const mismoDia = document.getElementById('inputMismoDia').value;
+            const correctivos = parseInt(document.getElementById('inputCorrectivos').value, 10) || 0;
+            const correctivosAutorizados = document.getElementById('inputCorrectivosAutorizados').value.trim() || "NA";
+            const descripcionCorrectivos = document.getElementById('inputDescripcion').value.trim() || "NA";
+
+            const newEntry = {
+                id: Date.now(),
+                taller: taller.toUpperCase(),
+                fecha,
+                derivadaPreventivo,
+                preventivo,
+                programados,
+                entregadas,
+                mismoDia,
+                correctivos,
+                correctivosAutorizados,
+                descripcionCorrectivos
+            };
+
+            pilotData.push(newEntry);
+            
+            populateTallerFilter();
+            renderDashboard();
+            closeAddModal();
+
+            // Reset form input defaults
+            document.getElementById('inputDerivada').value = "0";
+            document.getElementById('inputPreventivo').value = "1";
+            document.getElementById('inputProgramados').value = "1";
+            document.getElementById('inputEntregadas').value = "1";
+            document.getElementById('inputCorrectivos').value = "0";
+            document.getElementById('inputCorrectivosAutorizados').value = "NA";
+            document.getElementById('inputDescripcion').value = "";
+        }
+
+        function deleteEntry(id) {
+            pilotData = pilotData.filter(item => item.id !== id);
+            populateTallerFilter();
+            renderDashboard();
+        }
+
+        function openImportModal() {
+            document.getElementById('importModal').classList.remove('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+            document.getElementById('importStatus').classList.add('hidden');
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            const statusDiv = document.getElementById('importStatus');
+            statusDiv.classList.remove('hidden');
+            statusDiv.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-meli-accent mr-2"></i> Procesando archivo...';
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Buscar específicamente la hoja 'Prueba Pilot MELI' o variaciones
+                    let sheetName = workbook.SheetNames.find(n => n.toLowerCase().trim() === 'prueba piloto meli')
+                        || workbook.SheetNames.find(n => n.toLowerCase().includes('prueba piloto meli'))
+                        || workbook.SheetNames.find(n => n.toLowerCase().includes('pilot') || n.toLowerCase().includes('meli')) 
+                        || workbook.SheetNames[0];
+                        
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonData.length < 2) {
+                        statusDiv.className = "text-xs text-rose-600 font-semibold";
+                        statusDiv.textContent = `La hoja "${sheetName}" no contiene suficientes filas de datos.`;
+                        return;
+                    }
+
+                    // Parse records
+                    const importedData = [];
+                    let currentTaller = "MTK APODACA";
+
+                    // Iterate rows starting from row index 2 or header matching
+                    for (let i = 0; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (!row || row.length === 0) continue;
+
+                        const col0 = String(row[0] || '').trim();
+                        
+                        // Check if row contains workshop name (e.g., MTK APODACA)
+                        if (col0.toUpperCase().includes('MTK') || col0.toUpperCase().includes('TALLER')) {
+                            currentTaller = col0.replace(/\[-\]/g,'').replace(/\[\+\]/g,'').trim();
+                            if(currentTaller.toUpperCase() === 'TALLER' || currentTaller.toUpperCase().includes('ETIQUETA')) continue; // Skip headers
+                        }
+
+                        // Check if row is a true date entry (must contain numbers and exclude Subtotal/Total rows)
+                        const isDateRow = col0 && /\d/.test(col0) && !col0.toUpperCase().includes('MTK') && !col0.toUpperCase().includes('TOTAL') && !col0.toLowerCase().includes('fecha');
+
+                        if (isDateRow) {
+                            let fechaFormatted = col0.replace(/\[\+\]/g,'').replace(/\[-\]/g,'').trim();
+                            
+                            // Map months if format like 17-ago
+                            const matchAgo = fechaFormatted.toLowerCase().match(/(\d{1,2})-ago/);
+                            const matchSep = fechaFormatted.toLowerCase().match(/(\d{1,2})-sep/);
+                            const matchOct = fechaFormatted.toLowerCase().match(/(\d{1,2})-oct/);
+                            
+                            if (matchAgo) fechaFormatted = '2026-08-' + matchAgo[1].padStart(2, '0');
+                            else if (matchSep) fechaFormatted = '2026-09-' + matchSep[1].padStart(2, '0');
+                            else if (matchOct) fechaFormatted = '2026-10-' + matchOct[1].padStart(2, '0');
+                            
+                            // Fallback for standard date parsing if it comes as Excel serial number
+                            if (!isNaN(fechaFormatted) && Number(fechaFormatted) > 40000) {
+                                const dateObj = new Date(Math.round((fechaFormatted - 25569) * 86400 * 1000));
+                                fechaFormatted = dateObj.toISOString().split('T')[0];
+                            }
+
+                            importedData.push({
+                                id: Date.now() + i,
+                                taller: currentTaller,
+                                fecha: fechaFormatted,
+                                derivadaPreventivo: parseInt(row[1]) || 0,
+                                preventivo: parseInt(row[2]) || 0,
+                                programados: parseInt(row[4]) || 0, // Col 4: Meli Programados (skipping Grand Total at col 3)
+                                entregadas: parseInt(row[5]) || 0,  // Col 5: Meli Entregadas
+                                mismoDia: String(row[6] || 'Y').trim().toUpperCase(),
+                                correctivos: parseInt(row[7]) || 0,
+                                correctivosAutorizados: String(row[8] || 'NA').trim(),
+                                descripcionCorrectivos: String(row[9] || 'NA').trim()
+                            });
+                        }
+                    }
+
+                    if (importedData.length > 0) {
+                        pilotData = importedData;
+                        populateTallerFilter();
+                        renderDashboard();
+                        statusDiv.className = "text-xs text-emerald-600 font-semibold";
+                        statusDiv.textContent = `¡Éxito! Se cargaron ${importedData.length} registros desde "${sheetName}".`;
+                        setTimeout(closeImportModal, 2000);
+                    } else {
+                        statusDiv.className = "text-xs text-amber-600 font-semibold";
+                        statusDiv.textContent = `Se leyó la hoja "${sheetName}" pero no se detectaron filas con el formato esperado.`;
+                    }
+
+                } catch (err) {
+                    console.error(err);
+                    statusDiv.className = "text-xs text-rose-600 font-semibold";
+                    statusDiv.textContent = "Error al procesar el archivo Excel. Asegúrate de usar un formato válido.";
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function loadSampleData() {
+            pilotData = [
+                {
+                    id: 1,
+                    taller: "MTK APODACA",
+                    fecha: "2026-08-17",
+                    derivadaPreventivo: 0,
+                    preventivo: 1,
+                    programados: 1,
+                    entregadas: 1,
+                    mismoDia: "Y",
+                    correctivos: 0,
+                    correctivosAutorizados: "NA",
+                    descripcionCorrectivos: "NA"
+                },
+                {
+                    id: 2,
+                    taller: "MTK APODACA",
+                    fecha: "2026-08-18",
+                    derivadaPreventivo: 1,
+                    preventivo: 2,
+                    programados: 2,
+                    entregadas: 2,
+                    mismoDia: "Y",
+                    correctivos: 1,
+                    correctivosAutorizados: "1",
+                    descripcionCorrectivos: "Cambio llantas, Pte cambio discos y balatas unidad IH1367"
+                },
+                {
+                    id: 3,
+                    taller: "MTK APODACA",
+                    fecha: "2026-08-19",
+                    derivadaPreventivo: 0,
+                    preventivo: 3,
+                    programados: 3,
+                    entregadas: 2,
+                    mismoDia: "N",
+                    correctivos: 2,
+                    correctivosAutorizados: "1",
+                    descripcionCorrectivos: "Falla de inyector"
+                },
+                {
+                    id: 4,
+                    taller: "MTK GUADALAJARA",
+                    fecha: "2026-08-17",
+                    derivadaPreventivo: 2,
+                    preventivo: 1,
+                    programados: 3,
+                    entregadas: 3,
+                    mismoDia: "Y",
+                    correctivos: 0,
+                    correctivosAutorizados: "NA",
+                    descripcionCorrectivos: "Mantenimiento general"
+                }
+            ];
+            populateTallerFilter();
+            renderDashboard();
+            closeImportModal();
+        }
+
+        function exportToExcel() {
+            const dataToExport = getFilteredData().map(item => ({
+                "Taller": item.taller,
+                "Fecha": item.fecha,
+                "Derivada Preventivo": item.derivadaPreventivo,
+                "Preventivo": item.preventivo,
+                "MELI Programados": item.programados,
+                "MELI Entregadas": item.entregadas,
+                "Mismo Día": item.mismoDia,
+                "Correctivos": item.correctivos,
+                "Correctivos Autorizados": item.correctivosAutorizados,
+                "Descripción Correctivos": item.descripcionCorrectivos,
+                "Efectividad %": item.programados > 0 ? Math.round((item.entregadas / item.programados) * 100) : 0
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Prueba Pilot MELI");
+            XLSX.writeFile(wb, `Prueba_Piloto_MELI_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+    </script>
+</body>
+</html>
